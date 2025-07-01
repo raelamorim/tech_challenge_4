@@ -4,8 +4,13 @@ import numpy as np
 from deepface import DeepFace
 from collections import deque, Counter
 
+from app.pose_service import classify_activity_by_pose
+
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
+
+# Global (ou em cache por rosto)
+emotion_history = deque(maxlen=10)  # mantém as últimas 10 emoções
 
 def get_face_mesh():
     return mp_face_mesh.FaceMesh(
@@ -15,20 +20,6 @@ def get_face_mesh():
         min_tracking_confidence=0.5
     )
 
-def draw_face_mesh(frame, results):
-    if results.multi_face_landmarks:
-        for face_landmarks in results.multi_face_landmarks:
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_TESSELATION,
-                landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
-                connection_drawing_spec=mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1)
-            )
-
-# Global (ou em cache por rosto)
-emotion_history = deque(maxlen=10)  # mantém as últimas 10 emoções
-
 def draw_face_mesh_and_emotion(frame, face_mesh):
     """
     Processa o frame com FaceMesh e desenha bounding box e emoção no rosto.
@@ -37,9 +28,10 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
     
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     rgb_frame.flags.writeable = False
-    results = face_mesh.process(rgb_frame)
-    rgb_frame.flags.writeable = True
     
+    results = face_mesh.process(rgb_frame)
+    
+    rgb_frame.flags.writeable = True
     h, w, _ = frame.shape
 
     if results.multi_face_landmarks:
@@ -62,9 +54,13 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
                     emotion_label = Counter(emotion_history).most_common(1)[0][0]
             except:
                 emotion_label = "Erro"
+            
+            
+            activity_label = classify_activity_by_pose(rgb_frame)
+            label = f"{emotion_label} | {activity_label}"
 
             cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
-            cv2.putText(frame, emotion_label, (x_min, y_min - 10),
+            cv2.putText(frame, label, (x_min, y_min - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
     return frame
