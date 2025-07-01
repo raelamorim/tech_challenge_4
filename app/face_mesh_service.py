@@ -34,11 +34,12 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
     Processa o frame com FaceMesh e desenha bounding box e emoção no rosto.
     Retorna o frame anotado.
     """
+    
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     rgb_frame.flags.writeable = False
     results = face_mesh.process(rgb_frame)
     rgb_frame.flags.writeable = True
-
+    
     h, w, _ = frame.shape
 
     if results.multi_face_landmarks:
