@@ -2,6 +2,7 @@ import mediapipe as mp
 import cv2
 import numpy as np
 from deepface import DeepFace
+from collections import deque, Counter
 
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
@@ -24,6 +25,9 @@ def draw_face_mesh(frame, results):
                 landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
                 connection_drawing_spec=mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1)
             )
+
+# Global (ou em cache por rosto)
+emotion_history = deque(maxlen=10)  # mantém as últimas 10 emoções
 
 def draw_face_mesh_and_emotion(frame, face_mesh):
     """
@@ -50,20 +54,16 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
             try:
                 if cropped_face.size > 0:
                     result = DeepFace.analyze(cropped_face, actions=["emotion"], enforce_detection=False)
-                    emotion_label = result[0]['dominant_emotion']
+                    predicted_emotion = result[0]['dominant_emotion']
+                    emotion_history.append(predicted_emotion)
+
+                    # usa a emoção mais comum nas últimas 10
+                    emotion_label = Counter(emotion_history).most_common(1)[0][0]
             except:
                 emotion_label = "Erro"
 
             cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
             cv2.putText(frame, emotion_label, (x_min, y_min - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-
-            mp_drawing.draw_landmarks(
-                image=frame,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_TESSELATION,
-                landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
-                connection_drawing_spec=mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1)
-            )
 
     return frame

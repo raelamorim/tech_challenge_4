@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # 🎥 Reconhecimento Facial com MediaPipe e OpenCV
 
 Este projeto realiza a detecção de múltiplos rostos em tempo real utilizando a biblioteca **MediaPipe FaceMesh** e **OpenCV**, com suporte tanto para **webcam** quanto para **arquivos de vídeo**.
@@ -47,7 +46,4 @@ python main.py caminho/para/video.mp4
 ```
 
 Pressione q para encerrar a visualização.
-=======
-# tech_challenge_4
-Tech challenge for FIAP - Fase 4
->>>>>>> 64e61f09739cd2606de76cc204f890470c90e04c
+
