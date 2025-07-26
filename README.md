@@ -42,7 +42,7 @@ python main.py
 
 Usando um vídeo (ex: video.mp4):
 ```bash
-python main.py caminho/para/video.mp4
+python main.py ./assets/example.mp4
 ```
 
 Pressione q para encerrar a visualização.
