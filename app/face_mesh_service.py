@@ -55,9 +55,7 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
             except:
                 emotion_label = "Erro"
             
-            
-            activity_label = classify_activity_by_pose(rgb_frame)
-            label = f"{emotion_label}" # | {activity_label}"
+            label = f"{emotion_label}"
 
             cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
             cv2.putText(frame, label, (x_min, y_min - 10),
