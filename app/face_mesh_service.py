@@ -4,13 +4,8 @@ import numpy as np
 from deepface import DeepFace
 from collections import deque, Counter
 
-from app.pose_service import classify_activity_by_pose
-
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
-
-# Global (ou em cache por rosto)
-emotion_history = deque(maxlen=10)  # mantém as últimas 10 emoções
 
 def get_face_mesh():
     return mp_face_mesh.FaceMesh(
@@ -20,6 +15,20 @@ def get_face_mesh():
         min_tracking_confidence=0.5
     )
 
+def draw_face_mesh(frame, results):
+    if results.multi_face_landmarks:
+        for face_landmarks in results.multi_face_landmarks:
+            mp_drawing.draw_landmarks(
+                image=frame,
+                landmark_list=face_landmarks,
+                connections=mp_face_mesh.FACEMESH_TESSELATION,
+                landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
+                connection_drawing_spec=mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1)
+            )
+
+# Buffer para suavizar detecção de emoções
+emotion_history = deque(maxlen=15)  # guarda as últimas 10 emoções detectadas
+
 def draw_face_mesh_and_emotion(frame, face_mesh):
     """
     Processa o frame com FaceMesh e desenha bounding box e emoção no rosto.
@@ -28,37 +37,51 @@ def draw_face_mesh_and_emotion(frame, face_mesh):
     
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     rgb_frame.flags.writeable = False
-    
     results = face_mesh.process(rgb_frame)
-    
     rgb_frame.flags.writeable = True
+    
     h, w, _ = frame.shape
+
+    emotion_label = "N/A"
 
     if results.multi_face_landmarks:
         for face_landmarks in results.multi_face_landmarks:
+            # Coleta coordenadas normalizadas
             x_coords = [lm.x for lm in face_landmarks.landmark]
             y_coords = [lm.y for lm in face_landmarks.landmark]
-            x_min, x_max = int(min(x_coords) * w), int(max(x_coords) * w)
-            y_min, y_max = int(min(y_coords) * h), int(max(y_coords) * h)
+
+            # Define limites com padding e clamping
+            padding = 10
+            x_min = max(int(min(x_coords) * w) - padding, 0)
+            x_max = min(int(max(x_coords) * w) + padding, w)
+            y_min = max(int(min(y_coords) * h) - padding, 0)
+            y_max = min(int(max(y_coords) * h) + padding, h)
 
             cropped_face = frame[y_min:y_max, x_min:x_max]
-            emotion_label = "N/A"
 
             try:
                 if cropped_face.size > 0:
                     result = DeepFace.analyze(cropped_face, actions=["emotion"], enforce_detection=False)
-                    predicted_emotion = result[0]['dominant_emotion']
-                    emotion_history.append(predicted_emotion)
 
-                    # usa a emoção mais comum nas últimas 10
-                    emotion_label = Counter(emotion_history).most_common(1)[0][0]
-            except:
+                    if isinstance(result, list):  # deepface v0.40+ retorna lista
+                        predicted_emotion = result[0]['dominant_emotion']
+                    else:
+                        predicted_emotion = result['dominant_emotion']
+
+                    if predicted_emotion.lower() != "neutral":  # ignora neutro (opcional)
+                        emotion_history.append(predicted_emotion)
+
+                    # Suaviza com emoção mais comum nas últimas N frames
+                    if emotion_history:
+                        emotion_label = Counter(emotion_history).most_common(1)[0][0]
+
+            except Exception as e:
+                print(f"[Erro DeepFace] {e}")
                 emotion_label = "Erro"
-            
-            label = f"{emotion_label}"
 
+            # Desenha bounding box e emoção
             cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (0, 255, 255), 2)
-            cv2.putText(frame, label, (x_min, y_min - 10),
+            cv2.putText(frame, emotion_label, (x_min, y_min - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
     return frame
